@@ -18,7 +18,11 @@
 | **토픽 통신** | Gazebo 시뮬레이션에서 생성되는 카메라의 이미지 토픽을 ROS 2 시스템으로 구독(Subscribing image topic)할 수 있도록 브릿지(Bridge)를 설정했습니다. |
 
 
-===
+<br>
+<br>
+<br>
+<br>
+
 
 # 🤖 Indy7-with-Camera (ROS 2 Jazzy)
 
