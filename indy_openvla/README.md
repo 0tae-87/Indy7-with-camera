@@ -6,11 +6,14 @@ This package (`indy_openvla`) provides a Gazebo-based simulation environment for
   <h3>📸 Initial Simulation State</h3>
   <img src="Initial_State.png" width="80%" alt="Initial Simulation State"/>
 </div>
+
 ---
 
 ### 🎥 Demo Video
-Click the link below to watch the cylinder pick & place demonstration:
-> **[▶️ Watch the Demo Video (Cylinder_Pick&Place.mp4)](Cylinder_Pick&Place.mp4)**
+<div align="center">
+  <h3>🎥 Simulation Preview</h3>
+  <img src="Cylinder_Pick&Place.gif" width="100%" alt="Simulation Demo GIF"/>
+</div>
 
 ---
 
