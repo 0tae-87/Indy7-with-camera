@@ -7,7 +7,7 @@ This package (`indy_openvla`) provides a Gazebo-based simulation environment for
   <img src="Initial_State.png" width="80%" alt="Initial Simulation State"/>
 </div>
 
----
+
 <br>
 
 ### 🎥 Demo Video
