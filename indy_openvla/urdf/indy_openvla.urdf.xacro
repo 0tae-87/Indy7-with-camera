@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg name)">
+
+    <xacro:arg name="name" default="indy"/>
+
+    <xacro:arg name="indy_type" default="indy7"/>
+
+    <xacro:arg name="indy_eye" default="false"/>
+
+    <xacro:arg name="prefix" default="" />
+    <xacro:arg name="joint_limit_params" default="$(find indy_description)/config/$(arg indy_type)/joint_limits.yaml"/>
+    <xacro:arg name="kinematics_params" default="$(find indy_description)/config/$(arg indy_type)/kinematics.yaml"/>
+    <xacro:arg name="physical_params" default="$(find indy_description)/config/$(arg indy_type)/physical_parameters.yaml"/>
+    <xacro:arg name="visual_params" default="$(find indy_description)/config/$(arg indy_type)/visual_parameters.yaml"/>
+    <xacro:arg name="joint_axes_params" default="$(find indy_description)/config/$(arg indy_type)/joint_axes.yaml"/>
+    <xacro:arg name="initial_positions" default="$(find indy_description)/config/initial_positions.yaml"/>
+    <xacro:arg name="transmission_hw_interface" default=""/>
+
+    <xacro:arg name="sim_gazebo" default="false" />
+    <xacro:arg name="simulation_controllers" default="" />
+    
+    <xacro:include filename="$(find indy_openvla)/urdf/indy_macro.xacro"/>
+    <link name="world" />
+
+    <xacro:indy_robot
+        name="$(arg name)"
+        indy_type="$(arg indy_type)"
+        indy_eye="$(arg indy_eye)"
+        prefix="$(arg prefix)"
+        parent="world"
+        joint_limits_parameters_file="$(arg joint_limit_params)"
+        kinematics_parameters_file="$(arg kinematics_params)"
+        physical_parameters_file="$(arg physical_params)"
+        visual_parameters_file="$(arg visual_params)"
+        joint_axes_parameters_file="$(arg joint_axes_params)"
+        transmission_hw_interface="$(arg transmission_hw_interface)"
+        initial_positions_file="$(arg initial_positions)"
+        sim_gazebo="$(arg sim_gazebo)"
+    >
+        <origin xyz="0 0 0" rpy="0 0 0" /> 
+    </xacro:indy_robot>
+
+    </robot>

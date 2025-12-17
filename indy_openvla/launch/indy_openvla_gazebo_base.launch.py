@@ -6,61 +6,85 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Regi
 from launch.event_handlers import OnProcessExit
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution #, IfElseSubstitution
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution 
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
-def launch_setup(context, *args, **kwargs):
-    description_package = FindPackageShare('indy_description')
-    gazebo_package = FindPackageShare('indy_gazebo')
+openvla_package = FindPackageShare('indy_openvla') 
 
-    # Initialize Arguments
+def get_config_path(package_share, sub_dirs, file_name):
+    return PathJoinSubstitution([package_share] + sub_dirs + [file_name])
+
+
+def launch_setup(context, *args, **kwargs):
+    gazebo_package = FindPackageShare('indy_gazebo')
+    indy_description_package = FindPackageShare('indy_description')
+
     name = LaunchConfiguration("name")
     indy_type = LaunchConfiguration("indy_type")
     indy_eye = LaunchConfiguration("indy_eye")
     prefix = LaunchConfiguration("prefix")
     launch_rviz = LaunchConfiguration("launch_rviz")
 
-    # gazebo_gui = LaunchConfiguration("gazebo_gui")
-    # world_file = LaunchConfiguration("world_file")
+    indy_type_val = indy_type.perform(context)
 
-    if (indy_type.perform(context) == 'indyrp2') or (indy_type.perform(context) == 'indyrp2_v2'):
+    if (indy_type_val == 'indyrp2') or (indy_type_val == 'indyrp2_v2'):
         initial_joint_controllers = PathJoinSubstitution(
             [gazebo_package, "controller", "indy_controllers_7dof.yaml"]
         )
     else:
         initial_joint_controllers = PathJoinSubstitution(
-            [gazebo_package, "controller", "indy_controllers_6dof.yaml"]
+            [openvla_package, "config", "indy_openvla_controllers.yaml"]
         )
+
+    sub_dirs_type = ["urdf", "config", indy_type_val]
+    sub_dirs_init = ["urdf", "config"]
+
+    joint_limits_path = get_config_path(indy_description_package, sub_dirs_type, "joint_limits.yaml")
+    kinematics_path = get_config_path(indy_description_package, sub_dirs_type, "kinematics.yaml")
+    physical_path = get_config_path(indy_description_package, sub_dirs_type, "physical_parameters.yaml")
+    visual_path = get_config_path(indy_description_package, sub_dirs_type, "visual_parameters.yaml")
+    joint_axes_path = get_config_path(indy_description_package, sub_dirs_type, "joint_axes.yaml")
+    initial_positions_path = get_config_path(indy_description_package, sub_dirs_init, "initial_positions.yaml")
 
     robot_description_content = Command(
         [
             PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
-            PathJoinSubstitution([description_package, "urdf", "indy.urdf.xacro"]),
+            PathJoinSubstitution([openvla_package, "urdf", "indy.urdf.xacro"]), 
             " ",
-            "name:=",
-            name,
+            "name:=", name,
             " ",
-            "indy_type:=",
-            indy_type,
+            "indy_type:=", indy_type,
             " ",
-            "indy_eye:=",
-            indy_eye,
+            "indy_eye:=", indy_eye,
             " ",
-            "prefix:=",
-            prefix,
+            "prefix:=", prefix,
             " ",
             "sim_gazebo:=true",
             " ",
-            "simulation_controllers:=",
-            initial_joint_controllers,
+            "simulation_controllers:=", initial_joint_controllers,
+            " ",
+            "transmission_hw_interface:=", "hardware_interface/PositionJointInterface",
+            " ",
+            "joint_limit_params:=", joint_limits_path,
+            " ",
+            "kinematics_params:=", kinematics_path,
+            " ",
+            "physical_params:=", physical_path,
+            " ",
+            "visual_params:=", visual_path,
+            " ",
+            "joint_axes_params:=", joint_axes_path,
+            " ",
+            "initial_positions:=", initial_positions_path,
         ]
     )
     robot_description = {"robot_description": robot_description_content}
 
+    description_package_original = FindPackageShare('indy_description') 
     rviz_config_file = PathJoinSubstitution(
-        [description_package, "rviz_config", "indy.rviz"]
+        [description_package_original, "rviz_config", "indy.rviz"]
     )
 
     robot_state_publisher_node = Node(
@@ -76,7 +100,6 @@ def launch_setup(context, *args, **kwargs):
         name='zed2i_depth_frame_publisher',
         arguments=['0', '0', '0', '0', '0', '0', 'zed2i_camera_frame', 'indy/link6/zed2i_depth']
     )
-
 
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
@@ -127,7 +150,6 @@ def launch_setup(context, *args, **kwargs):
         arguments=["-d", rviz_config_file],
     )
 
-    # Delay start joint_state_broadcaster
     delay_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=gazebo_spawn_robot,
@@ -135,7 +157,6 @@ def launch_setup(context, *args, **kwargs):
         )
     )
 
-    # Delay start of robot_controller
     delay_robot_controller_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
@@ -143,7 +164,6 @@ def launch_setup(context, *args, **kwargs):
         )
     )
 
-    # Delay rviz
     delay_rviz2_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_controller_spawner,
@@ -156,8 +176,6 @@ def launch_setup(context, *args, **kwargs):
         gazebo_spawn_robot,
         robot_state_publisher_node,
         ros_gz_bridge,
-        # joint_state_broadcaster_spawner,
-        # joint_controller_spawner,
         static_tf_publisher,
         delay_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner,
@@ -210,4 +228,3 @@ def generate_launch_description():
     )
 
     return LaunchDescription(declared_arguments + [OpaqueFunction(function=launch_setup)])
-    
