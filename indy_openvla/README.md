@@ -17,6 +17,7 @@ This package (`indy_openvla`) provides a Gazebo-based simulation environment for
 
 ---
 <br>
+
 ## 🚀 Quick Start
 
 ### 1. Launch Simulation
@@ -29,6 +30,7 @@ ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py
 
 ---
 <br>
+
 ## 🎮 Control Guide
 
 ### Method A: Gripper Only (Recommended)
@@ -80,6 +82,7 @@ ros2 topic pub --once /joint_trajectory_controller/joint_trajectory trajectory_m
 
 ---
 <br>
+
 ## 🌍 Simulation World
 The environment (`camera_world.sdf`) has been modified to include graspable objects located in front of the robot:
 * **🟥 Red Cube:** x=0.5, y=-0.1
@@ -88,6 +91,7 @@ The environment (`camera_world.sdf`) has been modified to include graspable obje
 
 ---
 <br>
+
 ## 🛠️ Technical Details & Updates
 This package implements several critical fixes to ensure stability in ROS 2 Jazzy / Gazebo:
 
