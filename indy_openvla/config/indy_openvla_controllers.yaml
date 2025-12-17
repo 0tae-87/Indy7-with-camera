@@ -26,6 +26,8 @@ joint_trajectory_controller:
             - joint4
             - joint5
             - left_finger_joint
+            - right_finger_joint
+            
         command_interfaces:
             - position
         state_interfaces:

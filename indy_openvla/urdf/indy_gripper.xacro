@@ -22,14 +22,14 @@
             <visual>
                 <origin xyz="0 0 ${gripper_body_length/2}" rpy="0 0 0"/>
                 <geometry>
-                    <box size="${gripper_body_length} ${finger_spread + finger_width*2} ${gripper_body_length}"/>
+                    <box size="${gripper_body_length} ${finger_spread + finger_width*2 + 0.06} ${gripper_body_length}"/>
                 </geometry>
                 <material name="gripper_metal_grey"/> 
             </visual>
             <collision>
                 <origin xyz="0 0 ${gripper_body_length/2}" rpy="0 0 0"/>
                 <geometry>
-                    <box size="${gripper_body_length} ${finger_spread + finger_width*2} ${gripper_body_length}"/>
+                    <box size="${gripper_body_length} ${finger_spread + finger_width*2 + 0.06} ${gripper_body_length}"/>
                 </geometry>
             </collision>
             <inertial>
