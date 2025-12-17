@@ -9,6 +9,7 @@ This package (`indy_openvla`) provides a Gazebo-based simulation environment for
 
 ---
 <br>
+
 ### 🎥 Demo Video
 <div align="center">
   <h3>🎥 Simulation Preview</h3>
