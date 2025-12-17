@@ -2,7 +2,7 @@
 
 This package (`indy_openvla`) provides a Gazebo-based simulation environment for the Indy7 robot arm. It includes a fully functional 2-finger gripper, `ros2_control` integration, and a custom world with graspable objects for Pick & Place tasks.
 
-![Demo Preview](Cylinder_pick&place.mp4)
+![Demo Preview](Cylinder_Pick&Place.mp4)
 > *Click the video file above to see the gripper actuation and simulation in action.*
 
 ---
