@@ -1,117 +1,192 @@
-# 🦾 Indy7 OpenVLA & Gripper Simulation
+# 🦾 Indy7 OpenVLA Simulation with MoveIt
 
-This package (`indy_openvla`) provides a Gazebo-based simulation environment for the Indy7 robot arm. It includes a fully functional 2-finger gripper, `ros2_control` integration, and a custom world with graspable objects for Pick & Place tasks.
+Gazebo simulation environment for Indy7 robot arm with **MoveIt motion planning**, 2-finger gripper, YOLO object detection, and ros2_control integration.
+
+## ✨ Key Features
+- 🎯 **MoveIt Integration** - Visual motion planning with collision detection
+- 🤖 **YOLO Detection** - Real-time object detection with 3D localization
+- 🦾 **Dual Controllers** - Separate arm (6 DOF) and gripper (2 DOF) control
+- 📷 **ZED2i Camera** - RGB + PointCloud simulation
+- 🎮 **Multiple Control Methods** - MoveIt GUI, Python IK script, or CLI
 
 <div align="center">
-  <h3>📸 Initial Simulation State</h3>
   <img src="imgs/Initial_State.png" width="80%" alt="Initial Simulation State"/>
+  <p><i>Initial simulation state with mustard bottle</i></p>
 </div>
 
-<br>
-
-### 🎥 Demo Video
 <div align="center">
-  <h3>🎥 Simulation Preview</h3>
-  <img src="imgs/Cylinder_Pick&Place.gif" width="100%" alt="Simulation Demo GIF"/>
+  <img src="imgs/Cylinder_Pick&Place.gif" width="100%" alt="Pick & Place Demo"/>
+  <p><i>Autonomous pick and place demonstration</i></p>
 </div>
+
+---
+
+## 💻 System Requirements
+
+### Base System (ROS2 Environment)
+```
+OS: Ubuntu 24.04.3 LTS (Noble Numbat)
+Kernel: 6.8.12-tegra
+ROS2: Jazzy
+Gazebo: 8.10.0
+GPU: NVIDIA Thor (CUDA 13.0)
+```
+
+### Python Environment (Conda: vla)
+```
+Python: 3.12.12
+PyTorch: 2.9.1+cpu (CPU-only, no CUDA backend)
+NumPy: 1.26.4 (< 2.0 for cv_bridge compatibility)
+OpenCV: 4.12.0.88
+Ultralytics: 8.3.241 (YOLOv8)
+ikpy: 3.4.2
+scipy: 1.16.3
+rclpy: 7.1.6
+```
+
+**Note:** YOLO runs on CPU due to torchvision lacking CUDA backend support on NVIDIA Thor.
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Launch Simulation
-Open a terminal and run the main launch file. This starts Gazebo, the robot model (URDF), and the trajectory controllers.
+```bash
+# Launch simulation (MoveIt enabled by default)
+ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py
 
-**Command:**
-`ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py`
+# Launch options
+ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py launch_moveit:=false  # Disable MoveIt
+ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py launch_rviz:=false    # Disable RViz
+```
 
-> **Note:** Wait until you see the log message: `[joint_trajectory_controller]: Active`
+**Wait for:** `[joint_trajectory_controller]: Active` and `[gripper_controller]: Active`
 
 ---
 
-## 🎮 Control Guide
+## 🎮 Control Methods
 
-### Method A: Interactive Cartesian Control with RPY (Recommended)
-Use the `indy7_move_to_xyz.py` script for precise 3D positioning and orientation control using Inverse Kinematics (IK).
+### 🎯 Method A: MoveIt (Recommended)
 
-| Feature | Description |
-| :--- | :--- |
-| **Execution** | `python3 indy7_move_to_xyz.py` |
-| **IK Engine** | Automatically maps XYZ+RPY to 8-joint commands |
-| **Orientation Control** | Full Roll-Pitch-Yaw control in radians |
-| **Safe Limits** | Gripper open: 0.038m / Close: 0.001m |
-| **State Sync** | Real-time synchronization via `/joint_states` |
+**Visual motion planning with collision avoidance**
 
-**Terminal Commands:**
-* `x y z`: Move to target coordinates (e.g., `0.5 0.0 0.4`)
-* `x y z r p y`: Move with orientation control (e.g., `0.5 0.0 0.4 0 1.57 0`)
-* `home`: Return to safe default pose
-* `open` / `close`: Toggle gripper state
-* `pos`: Show current TCP position and orientation
+1. Launch simulation (MoveIt enabled by default)
+2. In RViz "MotionPlanning" panel:
+   - Drag interactive marker to set goal
+   - Click **Plan** → **Execute**
+3. Planning group: `indy_manipulator` (6 DOF arm)
+4. Gripper: Use separate `gripper_controller`
+
+**Features:** OMPL planner, collision detection, trajectory visualization
+
+---
+
+### 💻 Method B: Python IK Script
+
+**Direct XYZ + RPY control with inverse kinematics**
+
+```bash
+python3 indy7_move_to_xyz.py
+```
+
+**Commands:**
+```
+0.5 0.0 0.4              # Move to XYZ
+0.5 0.0 0.4 0 1.57 0     # Move with RPY (pitch down 90°)
+home                     # Return to home position
+open / close             # Control gripper
+pos                      # Show current pose
+```
 
 **RPY Examples:**
-* `0 1.57 0` - Gripper pointing downward (90° pitch)
-* `0 0 0` - Gripper horizontal
-* `1.57 0 0` - Gripper rotated 90° roll
-
-### Method B: Manual CLI Control
-**1. Set Parameters:**
-`ros2 param set /joint_trajectory_controller allow_partial_joints_goal true`
-
-**2. Publish Topic:**
-`ros2 topic pub --once /joint_trajectory_controller/joint_trajectory trajectory_msgs/msg/JointTrajectory "{joint_names: ['left_finger_joint', 'right_finger_joint'], points: [{positions: [0.04, 0.04], time_from_start: {sec: 3, nanosec: 0}}]}"`
+- `0 1.57 0` - Gripper down (90° pitch)
+- `0 0 0` - Gripper horizontal
+- `1.57 0 0` - Gripper rotated (90° roll)
 
 ---
 
-## 🤖 Real-time Object Detection with YOLO
+### ⚙️ Method C: ROS2 CLI
 
-The `yolo_grasping.py` script provides real-time object detection using YOLOv8n with ROS2 integration for autonomous grasping.
+**Manual topic publishing for advanced users**
+
+```bash
+# Enable partial goals
+ros2 param set /joint_trajectory_controller allow_partial_joints_goal true
+
+# Control gripper
+ros2 topic pub --once /joint_trajectory_controller/joint_trajectory \
+  trajectory_msgs/msg/JointTrajectory \
+  "{joint_names: ['left_finger_joint', 'right_finger_joint'], \
+    points: [{positions: [0.04, 0.04], time_from_start: {sec: 3}}]}"
+```
+
+---
+
+## 🤖 YOLO Object Detection
+
+**Real-time object detection with 3D localization**
 
 <div align="center">
-  <h3>🎯 Object Detection Example</h3>
-  <img src="imgs/OD_result.png" width="80%" alt="YOLO Object Detection Result"/>
+  <img src="imgs/OD_result.png" width="80%" alt="YOLO Detection"/>
+  <p><i>YOLOv8n detecting objects with 3D coordinates</i></p>
 </div>
 
-### Features
-* **Model:** YOLOv8n (nano) - optimized for CPU performance
-* **Detection:** All 80 COCO classes (person, chair, cup, etc.)
-* **3D Localization:** Integrates PointCloud data for robot base coordinates
-* **Real-time Display:** Live bounding boxes with confidence scores and distance
-
 ### Usage
-**Command:**
 ```bash
+# Activate conda environment first
+conda activate vla
 python3 yolo_grasping.py
 ```
 
-**Topics:**
-* Subscribes to: `/indy7/zed2i/image` (RGB camera)
-* Subscribes to: `/indy7/zed2i/points` (PointCloud2)
+### Specifications
+| Feature | Details |
+|---------|----------|
+| **Model** | YOLOv8n (CPU optimized) |
+| **Classes** | 80 COCO classes |
+| **Input Topics** | `/indy7/zed2i/image` (RGB)<br>`/indy7/zed2i/points` (PointCloud2) |
+| **Output** | Bounding boxes + 3D coordinates |
+| **Confidence** | 0.2 threshold |
+| **Resolution** | 416x416 |
 
-**Output:**
-* Live OpenCV window showing detected objects
-* Bounding boxes with labels and confidence scores
-* 3D coordinates (X, Y, Z) in robot base frame
-* Distance information when PointCloud is available
-
-**Performance:**
-* Confidence threshold: 0.2 (adjustable)
-* Image resolution: 416x416 (balanced speed/accuracy)
-* Frame rate: Real-time on CPU
-
----
-
-## 🌍 Simulation World
-The environment (`camera_world.sdf`) includes graspable objects:
-
-* 🍯 **Mustard Bottle:** x=0.5, y=0.0, z=0.05 (rotated 90° pitch)
-
-> **Note:** Previous versions included colored cubes (Red, Blue, Yellow Cylinder). The world has been updated to use a realistic mustard bottle model for more practical grasping scenarios.
+### Output
+- Live OpenCV window with detections
+- Object labels with confidence scores
+- 3D position (X, Y, Z) in robot base frame
+- Distance from camera
 
 ---
 
-## 🛠️ Technical Details & Updates
-1. **Kinematic Chain:** Added fixed `tcp_gripper_joint` for stable RViz transforms.
-2. **Interfaces:** Full `position`/`velocity` support for all 8 joints.
-3. **Mimic Logic:** `right_finger_joint` mirrors `left_finger_joint` for easy grasping.
-4. **Physics Safety:** Enforced limits (0.0m - 0.04m) to prevent Gazebo explosions.
+## 🌍 Simulation Environment
+
+**World:** `camera_world.sdf`
+
+**Objects:**
+- 🍯 Mustard Bottle at (0.5, 0.0, 0.05) - rotated 90° pitch
+
+> Previous versions used colored cubes. Updated to realistic mustard bottle for better grasping practice.
+
+---
+
+## 🛠️ Technical Details
+
+### Architecture
+- **MoveIt:** OMPL motion planning with collision detection
+- **Controllers:** 
+  - `joint_trajectory_controller` - 6 DOF arm (joint0-5)
+  - `gripper_controller` - 2 DOF gripper (left/right fingers)
+- **Kinematics:** Fixed `tcp_gripper_joint` for stable transforms
+- **Interfaces:** Position + velocity for all 8 joints
+- **Safety:** Gripper limits 0.0-0.04m
+
+### Known Issues
+⚠️ **Gripper initialization:** First command may only move one finger
+- **Workaround:** Move arm first OR send gripper command twice
+- **Cause:** Gazebo physics engine initialization timing
+
+---
+
+## 📚 Additional Resources
+
+- **Package:** `indy_openvla`
+- **Robot:** Indy7 v2 (6 DOF arm + 2 DOF gripper)
+- **Simulation:** Gazebo with ros2_control
+- **Planning:** MoveIt2 with OMPL

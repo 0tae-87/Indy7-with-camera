@@ -97,9 +97,5 @@
             <safety_controller soft_lower_limit="0.0" soft_upper_limit="${max_opening/2}" k_position="100" k_velocity="1"/>
         </joint>
 
-        <gazebo reference="${prefix}right_finger_joint">
-            <mimic joint="${prefix}left_finger_joint" multiplier="1" offset="0"/>
-        </gazebo>
-
     </xacro:macro>
 </robot>

@@ -80,10 +80,10 @@ class Indy7TCPControl(Node):
     def send_command(self, positions, duration_sec):
         """Send joint trajectory command"""
         msg = JointTrajectory()
-        msg.joint_names = self.all_joints
+        msg.joint_names = self.arm_joints  # Only arm joints
         
         p = JointTrajectoryPoint()
-        p.positions = positions
+        p.positions = positions[:6]  # Only first 6 positions
         p.time_from_start.sec = duration_sec
         p.time_from_start.nanosec = 0
         
@@ -93,15 +93,33 @@ class Indy7TCPControl(Node):
     def control_gripper(self, dist):
         """Control gripper opening distance"""
         safe_val = float(np.clip(dist, 0.001, 0.038))
-        target = self.current_arm_pos + [safe_val, safe_val]
-        self.send_command(target, 2)
+        
+        # Send to gripper controller
+        msg = JointTrajectory()
+        msg.joint_names = self.gripper_joints
+        
+        p = JointTrajectoryPoint()
+        p.positions = [safe_val, safe_val]
+        p.time_from_start.sec = 2
+        p.time_from_start.nanosec = 0
+        
+        msg.points.append(p)
+        
+        # Create gripper publisher if not exists
+        if not hasattr(self, 'gripper_publisher'):
+            self.gripper_publisher = self.create_publisher(
+                JointTrajectory,
+                '/gripper_controller/joint_trajectory',
+                10
+            )
+        
+        self.gripper_publisher.publish(msg)
         print(f"✓ Gripper distance: {safe_val:.3f}m")
 
     def go_home(self):
         """Move to home position"""
         home = [0.0, 0.0, -1.5708, 0.0, -1.5708, 0.0]
-        target = home + self.current_gripper_pos
-        self.send_command(target, 4)
+        self.send_command(home, 4)
         print("✓ Moving to home position")
 
     def move_tcp_to_xyz(self, x, y, z, roll=None, pitch=None, yaw=None):
@@ -157,7 +175,7 @@ class Indy7TCPControl(Node):
                 print("⚠ Warning: Some joints may be near limits")
             
             # Send command
-            target = arm_positions + self.current_gripper_pos
+            target = arm_positions
             self.send_command(target, 3)
             
             # Calculate achieved TCP position for verification
@@ -286,9 +304,10 @@ def main():
     rclpy.init()
     node = Indy7TCPControl()
     
-    # Give time for initial joint state
+    # Wait for joint states to be received
     import time
-    time.sleep(1.0)
+    print("Waiting for joint states...")
+    time.sleep(2.0)
     
     # Start ROS2 spinning in background thread
     spin_thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)

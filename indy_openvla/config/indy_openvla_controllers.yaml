@@ -9,6 +9,9 @@ controller_manager:
         joint_trajectory_controller:
             type: joint_trajectory_controller/JointTrajectoryController
 
+        gripper_controller:
+            type: joint_trajectory_controller/JointTrajectoryController
+
         forward_velocity_controller:
             type: velocity_controllers/JointGroupVelocityController
 
@@ -25,8 +28,6 @@ joint_trajectory_controller:
             - joint3
             - joint4
             - joint5
-            - left_finger_joint
-            - right_finger_joint
             
         command_interfaces:
             - position
@@ -45,7 +46,6 @@ joint_trajectory_controller:
             joint3: { trajectory: 0.2, goal: 0.1 }
             joint4: { trajectory: 0.2, goal: 0.1 }
             joint5: { trajectory: 0.2, goal: 0.1 }
-            left_finger_joint: { trajectory: 0.2, goal: 0.1 }
 
 forward_velocity_controller:
     ros__parameters:
@@ -68,3 +68,16 @@ forward_position_controller:
             - joint4
             - joint5
         interface_name: position
+
+gripper_controller:
+    ros__parameters:
+        joints:
+            - left_finger_joint
+            - right_finger_joint
+        command_interfaces:
+            - position
+        state_interfaces:
+            - position
+            - velocity
+        state_publish_rate: 50.0
+        action_monitor_rate: 20.0

@@ -1,14 +1,40 @@
+#!/usr/bin/env python3
+"""
+INDY7 OpenVLA Gazebo Launch File
+
+Usage:
+  # Default: MoveIt enabled
+  ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py
+
+  # Without MoveIt
+  ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py launch_moveit:=false
+
+  # Without RViz
+  ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py launch_rviz:=false
+
+  # Run YOLO separately:
+  python3 yolo_grasping.py
+
+Features:
+  - Gazebo simulation with camera_world
+  - Robot arm control (6 DOF)
+  - Gripper control (2 DOF, separate controller)
+  - MoveIt motion planning (default: enabled)
+  - ZED2i camera simulation
+"""
+
 import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler, OpaqueFunction, TimerAction
 from launch.event_handlers import OnProcessExit
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution 
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from indy_moveit.launch_common import load_yaml
 
 openvla_package = FindPackageShare('indy_openvla') 
 
@@ -19,12 +45,14 @@ def get_config_path(package_share, sub_dirs, file_name):
 def launch_setup(context, *args, **kwargs):
     gazebo_package = FindPackageShare('indy_gazebo')
     indy_description_package = FindPackageShare('indy_description')
+    moveit_config_package = FindPackageShare('indy_moveit')
 
     name = LaunchConfiguration("name")
     indy_type = LaunchConfiguration("indy_type")
     indy_eye = LaunchConfiguration("indy_eye")
     prefix = LaunchConfiguration("prefix")
     launch_rviz = LaunchConfiguration("launch_rviz")
+    launch_moveit = LaunchConfiguration("launch_moveit")
 
     indy_type_val = indy_type.perform(context)
 
@@ -113,6 +141,12 @@ def launch_setup(context, *args, **kwargs):
         executable="spawner",
         arguments=["joint_trajectory_controller", "-c", "/controller_manager"],
     )
+    
+    gripper_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["gripper_controller", "-c", "/controller_manager"],
+    )
 
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -141,15 +175,6 @@ def launch_setup(context, *args, **kwargs):
         ]
     )
 
-    rviz_node = Node(
-        condition=IfCondition(launch_rviz),
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        output="log",
-        arguments=["-d", rviz_config_file],
-    )
-
     delay_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=gazebo_spawn_robot,
@@ -163,13 +188,158 @@ def launch_setup(context, *args, **kwargs):
             on_exit=[joint_controller_spawner],
         )
     )
-
-    delay_rviz2_spawner = RegisterEventHandler(
+    
+    delay_gripper_controller_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_controller_spawner,
-            on_exit=[rviz_node],
+            on_exit=[gripper_controller_spawner],
         )
     )
+
+    # RViz configuration - disable when MoveIt is enabled
+    if launch_moveit.perform(context).lower() not in ("true", "1"):
+        rviz_node = Node(
+            condition=IfCondition(launch_rviz),
+            package="rviz2",
+            executable="rviz2",
+            name="rviz2",
+            output="log",
+            arguments=["-d", rviz_config_file],
+        )
+        
+        delay_rviz2_spawner = RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=gripper_controller_spawner,
+                on_exit=[rviz_node],
+            )
+        )
+    else:
+        delay_rviz2_spawner = None
+
+    # MoveIt Configuration
+    if launch_moveit.perform(context).lower() in ("true", "1"):
+        robot_description_semantic_content = Command(
+            [
+                PathJoinSubstitution([FindExecutable(name="xacro")]),
+                " ",
+                PathJoinSubstitution([moveit_config_package, "srdf", "indy.srdf.xacro"]),
+                " ",
+                "name:=", name,
+                " ",
+                "indy_type:=", indy_type,
+                " ",
+                "indy_eye:=", indy_eye,
+                " ",
+                "prefix:=", prefix,
+            ]
+        )
+        robot_description_semantic = {"robot_description_semantic": robot_description_semantic_content}
+
+        robot_description_kinematics = PathJoinSubstitution(
+            [moveit_config_package, "moveit_config", "kinematics.yaml"]
+        )
+
+        if (indy_type_val == 'indyrp2') or (indy_type_val == 'indyrp2_v2'):
+            joint_limit_yaml = load_yaml("indy_moveit", "moveit_config/joint_limits_7dof.yaml")
+            controllers_yaml = load_yaml("indy_moveit", "moveit_config/controllers_7dof.yaml")
+        else:
+            joint_limit_yaml = load_yaml("indy_moveit", "moveit_config/joint_limits_6dof.yaml")
+            controllers_yaml = load_yaml("indy_moveit", "moveit_config/controllers_6dof.yaml")
+
+        robot_description_planning = {"robot_description_planning": joint_limit_yaml}
+
+        ompl_planning_pipeline_config = {
+            "move_group": {
+                "planning_plugins": ["ompl_interface/OMPLPlanner"],
+                "request_adapters": [
+                    "default_planning_request_adapters/ResolveConstraintFrames",
+                    "default_planning_request_adapters/ValidateWorkspaceBounds",
+                    "default_planning_request_adapters/CheckStartStateBounds",
+                    "default_planning_request_adapters/CheckStartStateCollision",
+                ],
+                "response_adapters": [
+                    "default_planning_response_adapters/AddTimeOptimalParameterization",
+                    "default_planning_response_adapters/ValidateSolution",
+                    "default_planning_response_adapters/DisplayMotionPath",
+                ],
+            }
+        }
+        ompl_planning_yaml = load_yaml("indy_moveit", "moveit_config/ompl_planning.yaml")
+        ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
+
+        moveit_controllers = {
+            "moveit_simple_controller_manager": controllers_yaml,
+            "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
+        }
+
+        trajectory_execution = {
+            "moveit_manage_controllers": False,
+            "trajectory_execution.allowed_execution_duration_scaling": 1.2,
+            "trajectory_execution.allowed_goal_duration_margin": 1.0,
+            "trajectory_execution.allowed_start_tolerance": 0.5,
+            "trajectory_execution.trajectory_duration_monitoring": False
+        }
+
+        planning_scene_monitor_parameters = {
+            "publish_planning_scene": True,
+            "publish_geometry_updates": True,
+            "publish_state_updates": True,
+            "publish_transforms_updates": True,
+        }
+
+        # MoveIt RViz with proper configuration
+        moveit_rviz_config = PathJoinSubstitution(
+            [moveit_config_package, "rviz_config", "indy_moveit.rviz"]
+        )
+        
+        moveit_rviz_node = Node(
+            condition=IfCondition(launch_rviz),
+            package="rviz2",
+            executable="rviz2",
+            name="rviz2_moveit",
+            output="screen",
+            arguments=["-d", moveit_rviz_config],
+            parameters=[
+                robot_description,
+                robot_description_semantic,
+                robot_description_kinematics,
+                ompl_planning_pipeline_config,
+                {"use_sim_time": True},
+            ],
+        )
+
+        move_group_node = Node(
+            package="moveit_ros_move_group",
+            executable="move_group",
+            output="screen",
+            parameters=[
+                robot_description,
+                robot_description_semantic,
+                robot_description_kinematics,
+                robot_description_planning,
+                ompl_planning_pipeline_config,
+                trajectory_execution,
+                moveit_controllers,
+                planning_scene_monitor_parameters,
+                {"use_sim_time": True},
+            ],
+        )
+
+        delay_move_group_spawner = RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=gripper_controller_spawner,
+                on_exit=[move_group_node],
+            )
+        )
+        
+        # Use TimerAction instead of OnProcessExit since move_group doesn't exit
+        delay_moveit_rviz_spawner = TimerAction(
+            period=3.0,
+            actions=[moveit_rviz_node]
+        )
+    else:
+        delay_move_group_spawner = None
+        delay_moveit_rviz_spawner = None
 
     nodes_to_start = [
         gazebo,
@@ -179,8 +349,18 @@ def launch_setup(context, *args, **kwargs):
         static_tf_publisher,
         delay_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner,
-        delay_rviz2_spawner,
+        delay_gripper_controller_spawner,
     ]
+    
+    if delay_rviz2_spawner is not None:
+        nodes_to_start.append(delay_rviz2_spawner)
+    
+    if delay_move_group_spawner is not None:
+        nodes_to_start.append(delay_move_group_spawner)
+        
+    if delay_moveit_rviz_spawner is not None:
+        nodes_to_start.append(delay_moveit_rviz_spawner)
+    
     return nodes_to_start
 
 def generate_launch_description():
@@ -224,6 +404,14 @@ def generate_launch_description():
             "launch_rviz", 
             default_value="true", 
             description="Launch RViz?"
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "launch_moveit",
+            default_value="true",
+            description="Launch MoveIt motion planning?"
         )
     )
 
