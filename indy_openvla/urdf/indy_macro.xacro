@@ -282,7 +282,7 @@
             name="${prefix}link6_to_zed2i_joint" type="fixed">
                 <parent link="${prefix}link6"/>
                 <child link="${prefix}zed2i_camera_link"/>
-                <origin xyz="0.08 0 0" rpy="0 0 -1.5708"/> 
+                <origin xyz="-0.08 0 0" rpy="0 0 1.5708"/> 
             </joint>
 
             <link name="${prefix}zed2i_camera_frame"/>

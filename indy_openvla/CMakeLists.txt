@@ -30,10 +30,18 @@ install(DIRECTORY urdf
 
 # Install Python scripts
 install(PROGRAMS
-  yolo_grasping.py
+  yolo/cube_detection.py
+  yolo/yolo_moveit_grasping_new.py
   indy7_move_to_xyz.py
   DESTINATION lib/${PROJECT_NAME}
 )
+
+# Install YCB models (if exists)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ycb_models")
+  install(DIRECTORY ycb_models
+    DESTINATION share/${PROJECT_NAME}/
+  )
+endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

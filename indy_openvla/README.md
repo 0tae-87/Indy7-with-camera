@@ -11,12 +11,12 @@ Gazebo simulation environment for Indy7 robot arm with **MoveIt motion planning*
 
 <div align="center">
   <img src="imgs/Initial_State.png" width="80%" alt="Initial Simulation State"/>
-  <p><i>Initial simulation state with mustard bottle</i></p>
+  <p><i>Initial simulation state with colored cubes</i></p>
 </div>
 
 <div align="center">
-  <img src="imgs/Cylinder_Pick&Place.gif" width="100%" alt="Pick & Place Demo"/>
-  <p><i>Autonomous pick and place demonstration</i></p>
+  <img src="imgs/cube_pick&place.gif" width="100%" alt="YOLO Pick & Place Demo"/>
+  <p><i>YOLO-based autonomous cube grasping demonstration</i></p>
 </div>
 
 ---
@@ -32,7 +32,7 @@ Gazebo: 8.10.0
 GPU: NVIDIA Thor (CUDA 13.0)
 ```
 
-### Python Environment (Conda: vla)
+### Python Environment 
 ```
 Python: 3.12.12
 PyTorch: 2.9.1+cpu (CPU-only, no CUDA backend)
@@ -65,7 +65,38 @@ ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py launch_rviz:=false  
 
 ## 🎮 Control Methods
 
-### 🎯 Method A: MoveIt (Recommended)
+### 🎯 Method A: YOLO Vision-Based Grasping (Recommended)
+
+**Autonomous pick and place with YOLO object detection**
+
+```bash
+python3 yolo/yolo_moveit_grasping_new.py
+```
+
+**Keyboard Controls:**
+- **r/y/g/b** - Select cube color (red/yellow/green/blue)
+- **m** - Move to selected cube (pre-grasp position, 25cm above)
+- **a** - Descend 15cm and grasp (close gripper)
+- **h** - Return to home position (with gripper cycle)
+
+**Features:**
+- Real-time YOLO cube detection
+- HSV-based color classification
+- 3D position estimation from point cloud
+- Automatic IK calculation with joint limit validation
+- Gripper pointing down (RPY: 0, 3.14, 0)
+
+**Workflow:**
+1. Launch simulation
+2. Run YOLO grasping script
+3. Press color key to select target cube
+4. Press 'm' to move above cube
+5. Press 'a' to descend and grasp
+6. Press 'h' to return home
+
+---
+
+### 🎯 Method B: MoveIt GUI
 
 **Visual motion planning with collision avoidance**
 
@@ -80,7 +111,7 @@ ros2 launch indy_openvla indy_openvla_gazebo_base.launch.py launch_rviz:=false  
 
 ---
 
-### 💻 Method B: Python IK Script
+### 🎯 Method C: Python IK Script
 
 **Direct XYZ + RPY control with inverse kinematics**
 
@@ -104,7 +135,7 @@ pos                      # Show current pose
 
 ---
 
-### ⚙️ Method C: ROS2 CLI
+### ⚙️ Method D: ROS2 CLI
 
 **Manual topic publishing for advanced users**
 
@@ -126,26 +157,39 @@ ros2 topic pub --once /joint_trajectory_controller/joint_trajectory \
 **Real-time object detection with 3D localization**
 
 <div align="center">
-  <img src="imgs/OD_result.png" width="80%" alt="YOLO Detection"/>
-  <p><i>YOLOv8n detecting objects with 3D coordinates</i></p>
+  <img src="imgs/Box_Dedection.png" width="80%" alt="YOLO Detection"/>
+  <p><i>Custom YOLOv8 detecting colored cubes with 3D coordinates</i></p>
 </div>
 
-### Usage
-```bash
-# Activate conda environment first
-conda activate vla
-python3 yolo_grasping.py
-```
 
 ### Specifications
 | Feature | Details |
 |---------|----------|
-| **Model** | YOLOv8n (CPU optimized) |
-| **Classes** | 80 COCO classes |
+| **Model** | Custom YOLOv8 trained on cube dataset |
+| **Classes** | Cube detection |
+| **Color Detection** | HSV-based post-processing (red/yellow/green/blue) |
 | **Input Topics** | `/indy7/zed2i/image` (RGB)<br>`/indy7/zed2i/points` (PointCloud2) |
-| **Output** | Bounding boxes + 3D coordinates |
+| **Output** | Bounding boxes + 3D coordinates + color labels |
 | **Confidence** | 0.2 threshold |
 | **Resolution** | 416x416 |
+
+### Training Dataset
+**Source:** [Roboflow Cube Detection Dataset](https://universe.roboflow.com/roboticarm/cube-pr1ld)
+
+**Dataset Details:**
+- Trained on red, green, and blue cubes
+- 4 augmented outputs per training example
+
+**Augmentations Applied:**
+- Flip: Horizontal
+- Crop: 0-20% zoom
+- Saturation: ±25%
+- Brightness: ±15%
+- Exposure: ±10%
+- Blur: Up to 2.5px
+- Noise: Up to 0.1% of pixels
+
+**Note:** Model trained on green cubes but generalizes well to yellow cubes due to similar brightness/saturation characteristics in augmented training data.|
 
 ### Output
 - Live OpenCV window with detections
@@ -157,25 +201,48 @@ python3 yolo_grasping.py
 
 ## 🌍 Simulation Environment
 
-**World:** `camera_world.sdf`
+**World:** `camera_world.sdf` - Grasping practice world with colored cubes
 
 **Objects:**
-- 🍯 Mustard Bottle at (0.5, 0.0, 0.05) - rotated 90° pitch
+- 🟥 **Red Cube** at (0.6, 0.2, 0.04) - 8cm cube
+- 🟨 **Yellow Cube** at (0.5, 0.0, 0.025) - 8cm cube  
+- 🟦 **Blue Cube** at (0.6, -0.2, 0.04) - 8cm cube
+- 🟩 **Green Cube** at (0.7, 0.0, 0.04) - 8cm cube
 
-> Previous versions used colored cubes. Updated to realistic mustard bottle for better grasping practice.
+**Features:**
+- Primitive geometry (no mesh files needed)
+- Color-coded for vision-based manipulation
+- YOLO detects cubes, HSV post-processing identifies colors
+- Supports red, yellow, green, and blue cube detection
+- Ideal for pick-and-place practice
+
+**Physics:**
+- Mass: 0.1 kg per cube
+- Dynamic objects (not static)
+- Proper inertia for realistic grasping
 
 ---
 
 ## 🛠️ Technical Details
 
 ### Architecture
+- **YOLO Vision:** Custom YOLOv8 + HSV color detection + Point cloud processing
+- **IK Solver:** ikpy with current joint state as initial guess
 - **MoveIt:** OMPL motion planning with collision detection
 - **Controllers:** 
   - `joint_trajectory_controller` - 6 DOF arm (joint0-5)
   - `gripper_controller` - 2 DOF gripper (left/right fingers)
 - **Kinematics:** Fixed `tcp_gripper_joint` for stable transforms
 - **Interfaces:** Position + velocity for all 8 joints
-- **Safety:** Gripper limits 0.0-0.04m
+- **Safety:** Gripper limits 0.0-0.04m, joint limit validation
+
+### YOLO Grasping Pipeline
+1. **Detection:** YOLO detects cubes in RGB image
+2. **Color Classification:** HSV thresholding identifies cube color
+3. **3D Localization:** Average point cloud points within bounding box
+4. **TF Transform:** Convert camera frame to robot base frame (link0)
+5. **IK Calculation:** Compute joint angles for target pose (gripper down)
+6. **Motion Execution:** Send joint trajectory to controller
 
 ### Known Issues
 ⚠️ **Gripper initialization:** First command may only move one finger
