@@ -9,10 +9,6 @@ Gazebo simulation environment for Indy7 robot arm with **MoveIt motion planning*
 - 📷 **ZED2i Camera** - RGB + PointCloud simulation
 - 🎮 **Multiple Control Methods** - MoveIt GUI, Python IK script, or CLI
 
-<div align="center">
-  <img src="imgs/Initial_State.png" width="80%" alt="Initial Simulation State"/>
-  <p><i>Initial simulation state with colored cubes</i></p>
-</div>
 
 <div align="center">
   <img src="imgs/cube_pick&place.gif" width="100%" alt="YOLO Pick & Place Demo"/>

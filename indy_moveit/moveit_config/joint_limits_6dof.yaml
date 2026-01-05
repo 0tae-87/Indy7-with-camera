@@ -23,3 +23,9 @@ joint_limits:
   joint5:
     has_acceleration_limits: true
     max_acceleration: 5.0
+  left_finger_joint:
+    has_acceleration_limits: true
+    max_acceleration: 1.0
+  right_finger_joint:
+    has_acceleration_limits: true
+    max_acceleration: 1.0

@@ -1,0 +1,17 @@
+# Large media files
+imgs/*.mp4
+imgs/*.gif
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# ROS
+build/
+install/
+log/
+
+# IDE
+.vscode/
+.idea/
